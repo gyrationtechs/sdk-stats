@@ -82,17 +82,26 @@ Open [http://localhost:3000](http://localhost:3000).
 | --- | --- | --- |
 | `GITHUB_TOKEN` | No | Enables the Go card's traffic metrics. Needs push access on `sendlayer/sendlayer-go` (fine-grained: **Administration: Read**). Without it, the card shows stars, forks and versions only. |
 
-**Scope this variable to the runtime only — not to builds.** Turbopack snapshots
-build-environment variables into its persistent cache
-(`.next/cache/turbopack/*.sst`) so it can invalidate on change, which writes the
-token's value to disk and trips Netlify's secrets scanning. It happens whether or
-not the application reads the variable, so it cannot be avoided in application
-code. On Netlify: Site configuration → Environment variables → the variable's
-**Scopes** → untick *Builds*, keep *Functions*.
+### Why `turbopackFileSystemCacheForBuild` is disabled
 
-The page renders per request rather than at build time, so a runtime-only token is
-read normally. If a build has already cached the value, the next build restores that
-cache and fails again — use **Clear cache and deploy site** once.
+Turbopack's persistent build cache records build-environment variables *with their
+values*, so it can invalidate when they change. That writes `GITHUB_TOKEN` into
+`.next/cache/turbopack/*.sst`, which host secret scanners (Netlify's included)
+correctly refuse to deploy.
+
+It happens regardless of whether the application reads the variable — a build with
+zero `process.env` accesses anywhere in the source still writes the value — so it
+cannot be avoided in application code. `next.config.ts` therefore disables the
+filesystem cache for builds, which stops the directory being written at all. The
+cost is incremental rebuild caching, worth roughly two seconds here.
+
+The setting defaults to `true` as of Next 16.2, which is why this only appears on
+newer builds.
+
+The token never reaches served output in either configuration: `.next/server` and
+`.next/static` contain zero occurrences. If a previous build already cached the
+value, the host will restore that cache into the next build and fail again — clear
+the build cache once (on Netlify: **Clear cache and deploy site**).
 
 ## Scripts
 
