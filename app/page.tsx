@@ -5,7 +5,21 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { SendLayerLogo } from '@/components/icons';
 import { fetchAllStats } from '@/lib/registries';
 
-export const revalidate = 3600;
+/**
+ * Rendered per request rather than prerendered at build time.
+ *
+ * Two reasons, both about where the work happens. First, GITHUB_TOKEN is
+ * scoped to the runtime function and deliberately withheld from the build
+ * environment (Turbopack snapshots build env vars into its persistent cache,
+ * which writes secrets to disk), so only a request-time render can read it.
+ * Second, a build-time prerender bakes in whatever the registries happened to
+ * answer during the build — including a rate-limited failure — and pins it for
+ * the whole revalidate window.
+ *
+ * The upstream fetches are still cached for an hour, so this stays cheap: a
+ * render is five cache reads, not five API calls.
+ */
+export const dynamic = 'force-dynamic';
 
 /** Streamed separately so the header paints before the registries answer. */
 async function Stats() {

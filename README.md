@@ -80,7 +80,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `GITHUB_TOKEN` | No | Enables the Go card's traffic metrics. Needs push access on `sendlayer/sendlayer-go`. Without it, the card shows stars, forks and versions only. |
+| `GITHUB_TOKEN` | No | Enables the Go card's traffic metrics. Needs push access on `sendlayer/sendlayer-go` (fine-grained: **Administration: Read**). Without it, the card shows stars, forks and versions only. |
+
+**Scope this variable to the runtime only — not to builds.** Turbopack snapshots
+build-environment variables into its persistent cache
+(`.next/cache/turbopack/*.sst`) so it can invalidate on change, which writes the
+token's value to disk and trips Netlify's secrets scanning. It happens whether or
+not the application reads the variable, so it cannot be avoided in application
+code. On Netlify: Site configuration → Environment variables → the variable's
+**Scopes** → untick *Builds*, keep *Functions*.
+
+The page renders per request rather than at build time, so a runtime-only token is
+read normally. If a build has already cached the value, the next build restores that
+cache and fails again — use **Clear cache and deploy site** once.
 
 ## Scripts
 
