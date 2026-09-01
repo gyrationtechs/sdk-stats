@@ -1,83 +1,123 @@
-'use client';
+import CardShell from './CardShell';
+import Delta from './Delta';
+import Notes from './Notes';
+import Sparkline from './Sparkline';
+import { compact, full, longDate, shortDate } from '@/lib/format';
+import { changeRatio } from '@/lib/series';
+import { SERIES_VAR } from '@/lib/presentation';
+import type { SDKStats } from '@/lib/types';
 
-import { SDKStats } from '@/lib/api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+const WINDOWS = [
+  { key: 'day', prev: 'prevDay', label: 'Last day' },
+  { key: 'week', prev: 'prevWeek', label: 'Last 7 days' },
+  { key: 'month', prev: 'prevMonth', label: 'Last 30 days' },
+] as const;
 
-interface SDKCardProps {
-  name: string;
-  icon: string;
-  stats: SDKStats;
-  period: 'day' | 'week' | 'month';
-  color: string;
-  dateRange?: { start: string; end: string } | null;
-}
-
-export default function SDKCard({ name, icon, stats, period, color, dateRange }: SDKCardProps) {
-  const currentDownloads = stats[period];
-  const isCustomRange = dateRange !== null;
-
-  const chartData = [
-    { name: 'Daily', downloads: stats.day },
-    { name: 'Weekly', downloads: stats.week },
-    { name: 'Monthly', downloads: stats.month },
-  ];
+export default function SDKCard({ sdk }: { sdk: SDKStats }) {
+  const color = SERIES_VAR[sdk.id];
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-        <span>{icon}</span>
-        {name} SDK
-      </h2>
+    <CardShell
+      id={sdk.id}
+      name={sdk.name}
+      registry={sdk.registry}
+      packageName={sdk.packageName}
+      registryUrl={sdk.registryUrl}
+      repoUrl={sdk.repoUrl}
+      latestVersion={sdk.latestVersion}
+      footer={<Notes source={sdk.source} notes={sdk.notes} />}
+    >
+      {sdk.error ? (
+        <p className="flex-1 py-6 text-center text-xs text-down">{sdk.error}</p>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-ink-secondary">Last 7 days</span>
+              <span
+                className="text-2xl leading-none font-semibold text-ink"
+                title={sdk.windows ? full(sdk.windows.week) : undefined}
+              >
+                {sdk.windows ? compact(sdk.windows.week) : '—'}
+              </span>
+              {sdk.windows && (
+                <Delta
+                  ratio={changeRatio(sdk.windows.week, sdk.windows.prevWeek)}
+                  against="vs prior 7 days"
+                />
+              )}
+            </div>
+            {sdk.series.length > 1 && (
+              <Sparkline points={sdk.series} color={color} className="mt-1" />
+            )}
+          </div>
 
-      {/* Stats Box */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg p-4 mb-6">
-        <div className="text-center">
-          <p className="text-sm opacity-90 mb-1">
-            Downloads ({isCustomRange ? 'Custom' : period.charAt(0).toUpperCase() + period.slice(1)})
-          </p>
-          <p className="text-4xl font-bold">{currentDownloads.toLocaleString()}</p>
-        </div>
-      </div>
+          <dl className="mt-4 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-hairline">
+            {WINDOWS.map(({ key, prev, label }) => {
+              const value = sdk.windows?.[key];
+              const previous = sdk.windows?.[prev];
+              return (
+                <div key={key} className="flex flex-col gap-1 bg-surface p-2.5">
+                  <dt className="text-[11px] text-ink-muted">{label}</dt>
+                  <dd className="tabular text-sm font-semibold text-ink">
+                    {value === undefined ? '—' : full(value)}
+                  </dd>
+                  {value !== undefined && previous !== undefined && (
+                    <Delta ratio={changeRatio(value, previous)} against="" className="text-[10px]" />
+                  )}
+                </div>
+              );
+            })}
+          </dl>
 
-      {/* Chart */}
-      <div className="mb-6 h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip formatter={(value) => value.toLocaleString()} />
-            <Bar dataKey="downloads" fill={color} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+          {sdk.weekly.length > 1 && (
+            <div className="mt-4">
+              <p className="mb-2 text-[11px] font-medium text-ink-secondary">Weekly installs</p>
+              <ul className="flex flex-col gap-1">
+                {sdk.weekly
+                  .slice(-4)
+                  .reverse()
+                  .map((week) => (
+                    <li
+                      key={week.end}
+                      className="flex items-baseline justify-between gap-3 text-[11px]"
+                    >
+                      <span className="text-ink-muted">
+                        {shortDate(week.start)} – {shortDate(week.end)}
+                      </span>
+                      <span className="flex items-baseline gap-2">
+                        <span className="tabular font-semibold text-ink">{full(week.downloads)}</span>
+                        <Delta ratio={week.change} against="" className="text-[10px]" />
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100 border-b-2 border-purple-600">
-            <tr>
-              <th className="px-4 py-2 text-left font-semibold text-gray-700">Period</th>
-              <th className="px-4 py-2 text-right font-semibold text-gray-700">Downloads</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b hover:bg-gray-50">
-              <td className="px-4 py-2 text-gray-700">Daily</td>
-              <td className="px-4 py-2 text-right text-gray-700 font-semibold">{stats.day.toLocaleString()}</td>
-            </tr>
-            <tr className="border-b hover:bg-gray-50">
-              <td className="px-4 py-2 text-gray-700">Weekly</td>
-              <td className="px-4 py-2 text-right text-gray-700 font-semibold">{stats.week.toLocaleString()}</td>
-            </tr>
-            <tr className="hover:bg-gray-50">
-              <td className="px-4 py-2 text-gray-700">Monthly</td>
-              <td className="px-4 py-2 text-right text-gray-700 font-semibold">{stats.month.toLocaleString()}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-hairline pt-3 text-[11px] text-ink-muted">
+            {sdk.total !== null && (
+              <span>
+                All-time <span className="tabular font-semibold text-ink">{full(sdk.total)}</span>
+              </span>
+            )}
+            {sdk.windows && <span>as of {longDate(sdk.windows.asOf)}</span>}
+          </div>
+
+          {sdk.versions.length > 0 && sdk.versions.some((v) => v.downloads !== null) && (
+            <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-muted">
+              {sdk.versions.slice(0, 4).map((version) => (
+                <li key={version.number}>
+                  <span className="tabular text-ink-secondary">{version.number}</span>
+                  {version.downloads !== null && (
+                    <span className="tabular"> · {full(version.downloads)}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </CardShell>
   );
 }
-
