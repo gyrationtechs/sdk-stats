@@ -53,6 +53,19 @@ that *all* reporting registries have covered. Without that, per-SDK windows woul
 different date ranges and could not legitimately be summed into a total or compared on one
 chart. The partial current day is dropped for the same reason (npm reports it as `0`).
 
+## When a registry doesn't answer
+
+pypistats rate-limits bursts, and all five registries are queried concurrently on a
+cold cache, so partial failures are normal — especially from shared CI or serverless
+egress IPs. The dashboard never renders a missing result as `0`:
+
+- the affected tile shows `—` and "Registry unavailable"
+- the total states how many registries actually reported, and names the ones that didn't
+- the chart legend marks the series *unavailable* rather than omitting it silently
+- `/api/stats` returns `Cache-Control: no-store` for any partial response, so a failure
+  can't outlive the rate limit that caused it, and the client re-requests once on mount
+  to recover a prerender captured during one
+
 ## Setup
 
 ```bash

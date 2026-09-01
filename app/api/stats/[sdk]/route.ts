@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchAllStats, normalizeDays, SDK_ORDER } from '@/lib/registries';
 import type { SDKId } from '@/lib/types';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 /** Single-SDK access for anyone scripting against the dashboard's own data. */
 export async function GET(
@@ -24,7 +24,9 @@ export async function GET(
 
   return NextResponse.json(match, {
     headers: {
-      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      'Cache-Control': match?.error
+        ? 'no-store'
+        : 'public, s-maxage=3600, stale-while-revalidate=86400',
     },
   });
 }

@@ -36,6 +36,32 @@ export default function Dashboard({ initial }: { initial: StatsPayload }) {
   const [stale, startTransition] = useTransition();
   const [failed, setFailed] = useState<string | null>(null);
 
+  // The page is prerendered with ISR, so a registry that was rate-limited at
+  // build time would otherwise stay broken for the whole revalidate window.
+  // Re-request once on mount to recover, since the API route does not cache
+  // responses that contain errors.
+  useEffect(() => {
+    if (!payload.sdks.some((s) => s.error !== null)) return;
+    let cancelled = false;
+
+    fetch(`/api/stats?days=${payload.days}`, { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((next: StatsPayload | null) => {
+        if (!cancelled && next && !next.sdks.some((s) => s.error !== null)) {
+          setPayload(next);
+        }
+      })
+      .catch(() => {
+        // Keep the server-rendered payload; the cards already show the error.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Runs once against the payload the server delivered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (days === payload.days) return;
     let cancelled = false;
@@ -66,8 +92,13 @@ export default function Dashboard({ initial }: { initial: StatsPayload }) {
   const downloads = payload.sdks.filter((s) => s.metric === 'downloads');
   const go = payload.sdks.find((s) => s.id === 'go');
 
-  const windowTotal = sumWindow(downloads);
-  const previousTotal = sumPreviousWindow(downloads);
+  const reporting = downloads.filter((s) => !isUnavailable(s));
+  const missing = downloads.filter(isUnavailable);
+
+  // The total covers only the registries that actually answered, so it is
+  // never presented as covering more than it does.
+  const windowTotal = sumWindow(reporting);
+  const previousTotal = sumPreviousWindow(reporting);
   const asOf = downloads.map((s) => s.windows?.asOf).filter(Boolean).sort().pop();
 
   return (
@@ -134,7 +165,11 @@ export default function Dashboard({ initial }: { initial: StatsPayload }) {
                 />
               </div>
               <span className="text-[11px] text-ink-muted">
-                Across 4 registries. Go excluded — no counts published.
+                {missing.length === 0
+                  ? `Across ${reporting.length} registries. Go excluded — no counts published.`
+                  : `${reporting.length} of ${downloads.length} registries reporting — ${missing
+                      .map((s) => s.name)
+                      .join(', ')} unavailable. Go excluded — no counts published.`}
               </span>
             </div>
 
@@ -143,6 +178,7 @@ export default function Dashboard({ initial }: { initial: StatsPayload }) {
                 key={sdk.id}
                 label={sdk.name}
                 value={windowFor(sdk)}
+                unavailable={isUnavailable(sdk)}
                 ratio={
                   previousFor(sdk) === null
                     ? null
@@ -193,6 +229,14 @@ export default function Dashboard({ initial }: { initial: StatsPayload }) {
       </div>
     </div>
   );
+}
+
+/**
+ * An SDK is unavailable when its registry errored or returned no history. Its
+ * empty result must not be summed or displayed as a zero download count.
+ */
+function isUnavailable(sdk: SDKStats): boolean {
+  return sdk.error !== null || sdk.windows === null;
 }
 
 /**

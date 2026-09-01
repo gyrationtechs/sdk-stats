@@ -37,6 +37,9 @@ export default function TrendChart({ sdks, granularity, days }: TrendChartProps)
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const series = sdks.filter((s) => s.metric === 'downloads' && s.series.length > 0);
+  // Listed in the legend so a missing line reads as "not reported" rather than
+  // as an SDK with no downloads.
+  const unavailable = sdks.filter((s) => s.metric === 'downloads' && s.series.length === 0);
 
   const rows = useMemo<Row[]>(() => {
     if (series.length === 0) return [];
@@ -129,6 +132,17 @@ export default function TrendChart({ sdks, granularity, days }: TrendChartProps)
             </li>
           );
         })}
+        {unavailable.map((sdk) => (
+          <li key={sdk.id} className="flex items-baseline gap-2" title={sdk.error ?? undefined}>
+            <span
+              aria-hidden
+              className="mt-1.5 h-0.5 w-4 shrink-0 rounded-full opacity-30"
+              style={{ background: SERIES_VAR[sdk.id] }}
+            />
+            <span className="text-xs text-ink-muted">{sdk.name}</span>
+            <span className="text-xs text-ink-muted italic">unavailable</span>
+          </li>
+        ))}
       </ul>
 
       <div className="h-[280px] w-full">

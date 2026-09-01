@@ -3,7 +3,7 @@ export const REVALIDATE_SECONDS = 3600;
 
 const USER_AGENT = 'sendlayer-sdk-stats (+https://github.com/sendlayer)';
 const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 4;
 
 export class UpstreamError extends Error {
   constructor(
@@ -38,7 +38,10 @@ async function request(url: string, init: RequestInit): Promise<Response> {
     if (!RETRY_STATUSES.has(response.status) || attempt === MAX_ATTEMPTS) break;
 
     const retryAfter = Number(response.headers.get('retry-after'));
-    await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : attempt * 750);
+    // Jitter keeps five concurrent fetchers from retrying in lockstep and
+    // re-tripping the same rate limit.
+    const backoff = attempt * 750 + Math.random() * 400;
+    await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff);
   }
 
   throw new UpstreamError(url, lastStatus);
