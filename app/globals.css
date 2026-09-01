@@ -1,26 +1,189 @@
 @import "tailwindcss";
 
+/*
+ * Light is the base palette. Dark is a selected set of steps for the dark
+ * surface — not an automatic inversion — and is declared twice: once for the OS
+ * setting and once for the explicit toggle, so a stamped theme wins either way.
+ * Series colours are the validated categorical slots 1–4.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-raised: #f2f1ee;
+  --surface-hover: #eeede9;
+
+  --ink: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.16);
+
+  --accent: #211fa6;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(33, 31, 166, 0.08);
+
+  --up: #006300;
+  --down: #d03b3b;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-neutral: #898781;
+
+  --logo-glyph: #211fa6;
+  --shadow-card: 0 1px 2px rgba(11, 11, 11, 0.04);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-raised: #242422;
+    --surface-hover: #2c2c2a;
+
+    --ink: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.18);
+
+    --accent: #8b89f2;
+    --accent-ink: #12121f;
+    --accent-wash: rgba(139, 137, 242, 0.14);
+
+    --up: #0ca30c;
+    --down: #e66767;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-neutral: #898781;
+
+    --logo-glyph: #8b89f2;
+    --shadow-card: none;
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-raised: #242422;
+  --surface-hover: #2c2c2a;
+
+  --ink: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --accent: #8b89f2;
+  --accent-ink: #12121f;
+  --accent-wash: rgba(139, 137, 242, 0.14);
+
+  --up: #0ca30c;
+  --down: #e66767;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-neutral: #898781;
+
+  --logo-glyph: #8b89f2;
+  --shadow-card: none;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-grid: var(--grid);
+  --color-axis: var(--axis);
+  --color-hairline: var(--border);
+  --color-hairline-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-wash: var(--accent-wash);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+* {
+  border-color: var(--border);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Axis ticks and table columns need digits to line up; hero figures do not. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Refetch holds the previous render rather than flashing a skeleton. */
+.is-stale {
+  opacity: 0.55;
+  transition: opacity 150ms ease-out;
+}
+
+.recharts-surface:focus,
+.recharts-wrapper:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, transparent, var(--surface-hover), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.6s infinite;
 }
